@@ -94,6 +94,7 @@ function saveAuth(user) {
   currentUserToken = user.token;
   currentUserName = user.name;
   localStorage.setItem('mth_gate_token', user.token);
+  localStorage.setItem('mth_bound_device_token', user.token);
   localStorage.setItem('mth_gate_user', JSON.stringify(user));
   showScreen('gate');
   renderUser(user);
@@ -104,9 +105,232 @@ function clearAuth() {
   currentUserName = '';
   localStorage.removeItem('mth_gate_token');
   localStorage.removeItem('mth_gate_user');
+  // NOTE: mth_bound_device_token is intentionally kept to remember device binding!
   currentPin = '';
   updatePinDots();
   showScreen('login');
+}
+
+function openSwitchUserModal() {
+  triggerHaptic(30);
+  const modal = document.getElementById('switchUserModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeSwitchUserModal(e) {
+  if (!e || e.target.id === 'switchUserModal' || e.target.classList.contains('btn-modal-cancel')) {
+    const modal = document.getElementById('switchUserModal');
+    if (modal) modal.style.display = 'none';
+  }
+}
+
+function confirmSwitchUser() {
+  triggerHaptic(40);
+  const modal = document.getElementById('switchUserModal');
+  if (modal) modal.style.display = 'none';
+
+  localStorage.removeItem('mth_bound_device_token');
+  localStorage.removeItem('mth_gate_token');
+  localStorage.removeItem('mth_gate_user');
+  currentPin = '';
+  updatePinDots();
+  updateBindingUiState();
+  const errEl = document.getElementById('pinError');
+  if (errEl) errEl.textContent = 'สลับผู้ใช้งานเรียบร้อยแล้ว กรุณาสแกน QR Code เพื่อยืนยันตัวตนใหม่';
+  showSafeToast('กรุณาสแกนเพื่อยืนยันตัวตนใหม่', 'success');
+}
+
+function updateBindingUiState() {
+  const boundToken = localStorage.getItem('mth_bound_device_token');
+  const btnSwitch = document.getElementById('btnSwitchUser');
+  const btnScan = document.getElementById('btnScanQr');
+  const errEl = document.getElementById('pinError');
+
+  if (boundToken) {
+    if (btnSwitch) btnSwitch.style.display = 'inline-flex';
+    if (btnScan) btnScan.style.display = 'none';
+  } else {
+    if (btnSwitch) btnSwitch.style.display = 'none';
+    if (btnScan) btnScan.style.display = 'inline-flex';
+    if (errEl && !errEl.textContent) {
+      errEl.textContent = 'อุปกรณ์นี้ยังไม่ได้ผูกสิทธิ์ กรุณาสแกน QR Code เพื่อยืนยันตัวตนก่อน';
+    }
+  }
+}
+
+// ── Camera QR Code Scanner ─────────────────
+let qrVideoTrack = null;
+let qrScanAnimFrame = null;
+
+async function openQrScannerModal() {
+  triggerHaptic(30);
+  const modal = document.getElementById('qrScannerModal');
+  const statusEl = document.getElementById('qrScanStatus');
+  const videoBox = document.getElementById('videoContainer');
+  if (modal) modal.style.display = 'flex';
+
+  // Check if MediaDevices API (Live Camera Stream) is supported on current context (HTTPS / Localhost)
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (videoBox) videoBox.style.display = 'none';
+    if (statusEl) {
+      statusEl.innerHTML = '<span style="color:var(--brand-amber);">HTTP ไม่รองรับกล้องสด โปรดกดปุ่มถ่ายรูป/เลือกรูป QR ด้านล่าง</span>';
+    }
+    return;
+  }
+
+  if (videoBox) videoBox.style.display = 'block';
+  if (statusEl) statusEl.textContent = 'กำลังเปิดกล้อง...';
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    });
+    qrVideoTrack = stream.getVideoTracks()[0];
+    const video = document.getElementById('qrScannerVideo');
+    video.srcObject = stream;
+    video.setAttribute('playsinline', 'true');
+    await video.play();
+
+    if (statusEl) statusEl.textContent = 'ส่องกล้องไปที่ QR Code ประจำตัว...';
+    requestAnimationFrame(scanQrFrame);
+  } catch (err) {
+    if (videoBox) videoBox.style.display = 'none';
+    if (statusEl) statusEl.textContent = 'โปรดกดปุ่ม "ถ่ายรูป / เลือกรูป QR Code" ด้านล่าง';
+  }
+}
+
+function handleQrFileSelect(event) {
+  const file = event.target.files && event.target.files[0];
+  const statusEl = document.getElementById('qrScanStatus');
+  if (!file) return;
+
+  if (statusEl) statusEl.textContent = 'กำลังประมวลผลรูปภาพ QR Code...';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      // Downscale high-res camera photo (e.g. 12MP/48MP -> max 800px) to prevent mobile browser lag
+      const MAX_DIM = 800;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > MAX_DIM || height > MAX_DIM) {
+        if (width > height) {
+          height = Math.round((height * MAX_DIM) / width);
+          width = MAX_DIM;
+        } else {
+          width = Math.round((width * MAX_DIM) / height);
+          height = MAX_DIM;
+        }
+      }
+
+      const canvas = document.getElementById('qrScannerCanvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      setTimeout(() => {
+        if (typeof jsQR !== 'undefined') {
+          const imageData = ctx.getImageData(0, 0, width, height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert'
+          });
+
+          if (code && code.data) {
+            triggerHaptic([50, 50, 100]);
+            let token = null;
+            try {
+              if (code.data.includes('token=')) {
+                const urlObj = new URL(code.data, window.location.origin);
+                token = urlObj.searchParams.get('token');
+              } else if (code.data.startsWith('gate-')) {
+                token = code.data;
+              }
+            } catch (_) {
+              if (code.data.startsWith('gate-')) token = code.data;
+            }
+
+            if (token) {
+              closeQrScannerModal();
+              window.location.href = `${window.location.origin}/?token=${token}`;
+              return;
+            }
+          }
+        }
+        if (statusEl) statusEl.textContent = 'ไม่พบ QR Code ในรูปภาพนี้ กรุณาลองใหม่อีกครั้ง';
+      }, 50);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function scanQrFrame() {
+  const video = document.getElementById('qrScannerVideo');
+  const canvas = document.getElementById('qrScannerCanvas');
+  const statusEl = document.getElementById('qrScanStatus');
+
+  if (video && video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    if (typeof jsQR !== 'undefined') {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert'
+      });
+
+      if (code && code.data) {
+        triggerHaptic([50, 50, 100]);
+        if (statusEl) statusEl.textContent = 'พบคิวอาร์โค้ด! กำลังยืนยันตัวตน...';
+
+        let token = null;
+        try {
+          if (code.data.includes('token=')) {
+            const urlObj = new URL(code.data, window.location.origin);
+            token = urlObj.searchParams.get('token');
+          } else if (code.data.startsWith('gate-')) {
+            token = code.data;
+          }
+        } catch (_) {
+          if (code.data.startsWith('gate-')) token = code.data;
+        }
+
+        if (token) {
+          closeQrScannerModal();
+          window.location.href = `${window.location.origin}/?token=${token}`;
+          return;
+        } else {
+          if (statusEl) statusEl.textContent = 'QR Code ไม่ถูกต้อง (ไม่พบ Token สิทธิ์)';
+        }
+      }
+    }
+  }
+
+  const modal = document.getElementById('qrScannerModal');
+  if (modal && modal.style.display === 'flex') {
+    qrScanAnimFrame = requestAnimationFrame(scanQrFrame);
+  }
+}
+
+function closeQrScannerModal(e) {
+  if (e && e.target && e.target.id !== 'qrScannerModal' && !e.target.classList.contains('btn-modal-cancel')) {
+    return;
+  }
+  const modal = document.getElementById('qrScannerModal');
+  if (modal) modal.style.display = 'none';
+
+  if (qrScanAnimFrame) {
+    cancelAnimationFrame(qrScanAnimFrame);
+    qrScanAnimFrame = null;
+  }
+  if (qrVideoTrack) {
+    qrVideoTrack.stop();
+    qrVideoTrack = null;
+  }
 }
 
 function showScreen(screenName) {
@@ -120,6 +344,23 @@ function renderUser(user) {
 }
 
 // ── Keypad PIN System (6 Digits) ──────────
+document.addEventListener('keydown', (e) => {
+  const loginScreen = document.getElementById('screen-login');
+  if (!loginScreen || loginScreen.style.display === 'none') return;
+
+  const switchModal = document.getElementById('switchUserModal');
+  const logoutModal = document.getElementById('logoutModal');
+  if ((switchModal && switchModal.style.display === 'flex') || (logoutModal && logoutModal.style.display === 'flex')) return;
+
+  if (e.key >= '0' && e.key <= '9') {
+    pressKey(e.key);
+  } else if (e.key === 'Backspace') {
+    deletePin();
+  } else if (e.key === 'Escape' || e.key === 'Delete') {
+    clearPin();
+  }
+});
+
 function pressKey(num) {
   triggerHaptic(30);
   if (currentPin.length < 6) {
@@ -158,7 +399,7 @@ async function verifyPin() {
   const errEl = document.getElementById('pinError');
   if (errEl) errEl.textContent = 'กำลังตรวจสอบ...';
 
-  const boundToken = localStorage.getItem('mth_gate_token');
+  const boundToken = localStorage.getItem('mth_bound_device_token') || localStorage.getItem('mth_gate_token');
 
   try {
     const resp = await fetch('/api/verify_pin', {
@@ -327,6 +568,7 @@ async function pollStatus() {
 
   // 4. Default: Show PIN Prompt
   showScreen('login');
+  updateBindingUiState();
   pollStatus();
   setInterval(pollStatus, 8000);
 })();

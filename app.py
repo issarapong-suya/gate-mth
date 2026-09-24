@@ -177,9 +177,7 @@ def api_logout():
 @app.route("/admin")
 def admin_page():
     is_logged = session.get("is_admin", False)
-    host_ip = get_best_host_ip()
-    port = 5000
-    base_url = f"http://{host_ip}:{port}"
+    base_url = request.host_url.rstrip("/")
     return render_template("admin.html", is_logged=is_logged, base_url=base_url)
 
 @app.route("/api/admin/login", methods=["POST"])
@@ -272,8 +270,8 @@ def api_admin_user_delete(user_id):
 
 @app.route("/api/admin/qrcode/<token>")
 def api_admin_qrcode(token):
-    host_ip = get_best_host_ip()
-    target_url = f"http://{host_ip}:5000/?token={token}"
+    base_url = request.host_url.rstrip("/")
+    target_url = f"{base_url}/?token={token}"
 
     qr = qrcode.QRCode(version=1, box_size=8, border=2)
     qr.add_data(target_url)

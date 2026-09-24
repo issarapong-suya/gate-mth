@@ -10,7 +10,7 @@ class Config:
     DB_USER = os.environ.get("DB_USER", "root")
     DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
     DB_NAME = os.environ.get("DB_NAME", "mth_gate")
-    USE_MARIADB = os.environ.get("USE_MARIADB", "auto").lower() # 'auto', 'true', or 'false'
+    USE_MARIADB = os.environ.get("USE_MARIADB", "true").lower() # 'true', 'auto', or 'false'
 
     # HIP WG-1002 Controller Config
     CONTROLLER_SN = int(os.environ.get("CONTROLLER_SN", 123341266))

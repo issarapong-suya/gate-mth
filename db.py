@@ -285,29 +285,24 @@ def find_user_by_pin(pin):
 def verify_pin_for_bound_device(pin, bound_token=None):
     """
     Device Binding Verification:
-    If bound_token is provided, verify PIN against the bound user's PIN ONLY.
-    If no bound_token is provided (fresh device), allow matching PIN and return that user for initial binding.
+    Device MUST be bound via QR Code or Direct Link first.
+    Once bound, PIN verification checks against the bound user's PIN ONLY.
     """
     pin_str = str(pin).strip()
-    if bound_token:
-        user = find_user_by_token(bound_token)
-        if user and user.get("pin") == pin_str:
-            if user.get("status") != "active":
-                return False, None, "สิทธิ์การใช้งานของคุณถูกระงับ กรุณาติดต่อผู้ดูแลระบบ"
-            return True, user, "ยืนยันรหัส PIN สำเร็จ"
-        elif user:
-            return False, None, "รหัส PIN ไม่ถูกต้องสำหรับผู้ใช้งานเครื่องนี้"
-        else:
-            return False, None, "สิทธิ์การใช้งานของคุณไม่สมบูรณ์ กรุณาเปิดผ่านลิงก์ส่วนตัว"
+    if not bound_token:
+        return False, None, "อุปกรณ์นี้ยังไม่ได้ผูกสิทธิ์ กรุณาสแกน QR Code เพื่อยืนยันตัวตนก่อน"
 
-    # Fresh device binding by PIN entry
-    user = find_user_by_pin(pin_str)
-    if user:
-        if user.get("status") != "active":
-            return False, None, "สิทธิ์การใช้งานของคุณถูกระงับ กรุณาติดต่อผู้ดูแลระบบ"
-        return True, user, "ยืนยันรหัส PIN สำเร็จ และผูกอุปกรณ์เรียบร้อย"
-    
-    return False, None, "รหัส 6 PIN ไม่ถูกต้อง"
+    user = find_user_by_token(bound_token)
+    if not user:
+        return False, None, "สิทธิ์การใช้งานของคุณไม่สมบูรณ์ กรุณาสแกน QR Code เพื่อเปิดใช้งานใหม่"
+
+    if user.get("pin") != pin_str:
+        return False, None, "รหัส PIN ไม่ถูกต้องสำหรับผู้ใช้งานเครื่องนี้"
+
+    if user.get("status") != "active":
+        return False, None, "สิทธิ์การใช้งานของคุณถูกระงับ กรุณาติดต่อผู้ดูแลระบบ"
+
+    return True, user, "ยืนยันรหัส PIN สำเร็จ"
 
 # --- Events / Audit Logs ---
 
