@@ -1,0 +1,691 @@
+/* ════════════════════════════════════════════════════════════════
+   MTH GATE – Luxury Modern Mobile UI (v5)
+   Power Icon Button | Safe Position Toast | Logout Modal
+   ════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ─── COLOR TOKENS ─── */
+:root {
+  /* Dark Theme (Default) */
+  --bg-primary: #0a0e17;
+  --bg-surface: #111827;
+  --bg-surface-elevated: #162032;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-glow: rgba(56, 189, 248, 0.25);
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --brand-cyan: #38bdf8;
+  --brand-emerald: #10b981;
+  --brand-emerald-glow: rgba(16, 185, 129, 0.45);
+  
+  /* Luxury Power Button Gradients */
+  --btn-power-bg: radial-gradient(circle at 35% 30%, #ff5c7c, #ff3358 60%, #e11d48 95%);
+  --btn-power-shadow: 0 16px 45px rgba(255, 51, 88, 0.4), inset 0 2px 5px rgba(255, 255, 255, 0.45);
+  --btn-power-opening: radial-gradient(circle at 35% 30%, #34d399, #059669 85%);
+  --btn-power-opening-shadow: 0 16px 45px rgba(16, 185, 129, 0.45), inset 0 2px 5px rgba(255, 255, 255, 0.45);
+  
+  --ring-color: rgba(255, 51, 88, 0.25);
+  --danger: #f43f5e;
+  --card-glass: rgba(17, 24, 39, 0.85);
+}
+
+[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #f1f5f9;
+  --border-subtle: rgba(0, 0, 0, 0.07);
+  --border-glow: rgba(14, 165, 233, 0.25);
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  
+  --brand-cyan: #0284c7;
+  --brand-emerald: #059669;
+  --brand-emerald-glow: rgba(5, 150, 105, 0.35);
+  
+  --btn-power-bg: radial-gradient(circle at 35% 30%, #ff6b8b, #ff3358 65%, #e11d48 95%);
+  --btn-power-shadow: 0 16px 45px rgba(255, 51, 88, 0.32), inset 0 2px 5px rgba(255, 255, 255, 0.5);
+  --btn-power-opening: radial-gradient(circle at 35% 30%, #10b981, #047857 85%);
+  --btn-power-opening-shadow: 0 16px 45px rgba(4, 120, 87, 0.35), inset 0 2px 5px rgba(255, 255, 255, 0.5);
+  
+  --ring-color: rgba(255, 51, 88, 0.2);
+  --danger: #e11d48;
+  --card-glass: rgba(255, 255, 255, 0.92);
+}
+
+/* ─── BASE VIEWPORT (100dvh No-Overflow) ─── */
+html, body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Prompt', 'Plus Jakarta Sans', -apple-system, sans-serif;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ─── TOP HEADER ─── */
+.app-header {
+  min-height: calc(60px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+  z-index: 40;
+}
+
+.brand-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 8px;
+  filter: drop-shadow(0 2px 8px rgba(56, 189, 248, 0.25));
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.brand-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  background: linear-gradient(135deg, var(--brand-cyan), var(--brand-emerald));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand-subtitle {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 20px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  transition: all 0.3s ease;
+}
+
+.status-dot.online {
+  background-color: var(--brand-emerald);
+  box-shadow: 0 0 8px var(--brand-emerald);
+}
+
+.status-dot.offline {
+  background-color: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+}
+
+.status-label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Theme Switcher Button */
+.theme-toggle-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-elevated);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.92);
+}
+
+.theme-icon {
+  width: 17px;
+  height: 17px;
+}
+
+[data-theme="dark"] .icon-sun { display: block; }
+[data-theme="dark"] .icon-moon { display: none; }
+[data-theme="light"] .icon-sun { display: none; }
+[data-theme="light"] .icon-moon { display: block; }
+
+/* ─── MAIN CONTENT AREA (FIT NO SCROLL) ─── */
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  padding: 0.75rem 1.25rem 0.5rem;
+}
+
+.view-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SCREEN 1: PIN AUTHENTICATION
+   ════════════════════════════════════════════════════════════════ */
+.login-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.logo-hero {
+  margin-bottom: 0.75rem;
+}
+
+.hero-logo {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 16px rgba(56, 189, 248, 0.3));
+}
+
+.auth-heading {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1.1rem;
+  letter-spacing: 0.2px;
+}
+
+/* PIN Dots (6 Digits) */
+.pin-display {
+  display: flex;
+  justify-content: center;
+  gap: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.pin-digit {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--border-glow);
+  background: transparent;
+  transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pin-digit.active {
+  background: var(--brand-cyan);
+  border-color: var(--brand-cyan);
+  box-shadow: 0 0 12px var(--brand-cyan);
+  transform: scale(1.2);
+}
+
+.auth-message {
+  font-size: 0.8rem;
+  color: var(--danger);
+  min-height: 1.2rem;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+/* Keypad */
+.glass-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.num-key {
+  height: 54px;
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.num-key:active {
+  background: var(--brand-cyan);
+  color: #ffffff;
+  transform: scale(0.92);
+  border-color: var(--brand-cyan);
+}
+
+.num-key.fn-key {
+  color: var(--text-muted);
+  font-size: 1rem;
+  background: transparent;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SCREEN 2: GATE OPENER (LUXURY POWER BUTTON)
+   ════════════════════════════════════════════════════════════════ */
+.user-chip {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.4rem 0.85rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 30px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  margin-top: 0.25rem;
+  position: relative;
+  z-index: 20;
+}
+
+.chip-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--brand-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chip-avatar svg { width: 14px; height: 14px; }
+
+.chip-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.chip-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip-status {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--brand-emerald);
+}
+
+.chip-logout {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+  border-radius: 6px;
+}
+.chip-logout:hover { color: var(--danger); }
+.chip-logout svg { width: 16px; height: 16px; }
+
+/* ── Safe Toast Slot (วางอยู่ใต้ User Chip ไม่บัง Header/Navbar หรือชื่อเจ้าหน้าที่) ── */
+.toast-slot {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.4rem;
+  margin-bottom: 0.2rem;
+  z-index: 15;
+}
+
+.luxury-toast-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1rem;
+  border-radius: 20px;
+  background: var(--card-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  animation: toast-pop-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.luxury-toast-pill.success {
+  border-color: rgba(16, 185, 129, 0.4);
+  color: var(--brand-emerald);
+}
+
+.luxury-toast-pill.error {
+  border-color: rgba(244, 63, 94, 0.4);
+  color: var(--danger);
+}
+
+@keyframes toast-pop-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Center Stage: Giant Power Button ── */
+.gate-hero-stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: auto 0;
+}
+
+/* Pulsing outer aura rings */
+.aura-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid var(--ring-color);
+  pointer-events: none;
+  transition: all 0.4s ease;
+}
+
+.aura-ring.ring-1 {
+  width: 230px;
+  height: 230px;
+  animation: ring-pulse 3s infinite cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.aura-ring.ring-2 {
+  width: 270px;
+  height: 270px;
+  animation: ring-pulse 3s infinite cubic-bezier(0.2, 0.8, 0.2, 1) 0.8s;
+}
+
+@keyframes ring-pulse {
+  0% { transform: scale(0.85); opacity: 0.8; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+/* The Power Button (No text, pure iconic luxury) */
+.btn-power-gate {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  border: 5px solid rgba(255, 255, 255, 0.25);
+  background: var(--btn-power-bg);
+  box-shadow: var(--btn-power-shadow);
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 10;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.btn-power-gate:active {
+  transform: scale(0.91);
+  box-shadow: 0 4px 15px rgba(255, 51, 88, 0.5);
+}
+
+/* Opening State (Switches to emerald green with glowing breathing) */
+.btn-power-gate.opening {
+  background: var(--btn-power-opening);
+  box-shadow: var(--btn-power-opening-shadow);
+  border-color: rgba(255, 255, 255, 0.4);
+  animation: power-breathe 1.2s infinite ease-in-out alternate;
+}
+
+@keyframes power-breathe {
+  0% { transform: scale(0.96); box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4); }
+  100% { transform: scale(1.04); box-shadow: 0 20px 50px rgba(16, 185, 129, 0.65); }
+}
+
+/* Power SVG Icon */
+.power-icon-wrap {
+  width: 90px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.power-svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+}
+
+.power-arc, .power-line {
+  transition: stroke 0.3s ease, filter 0.3s ease;
+}
+
+.btn-power-gate.opening .power-arc,
+.btn-power-gate.opening .power-line {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+}
+
+/* Status hint pill */
+.gate-status-hint {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 20px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.hint-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-emerald);
+  animation: pulse-dot 1.8s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LUXURY CONFIRMATION MODAL (LOGOUT)
+   ════════════════════════════════════════════════════════════════ */
+.custom-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 1.25rem;
+}
+
+.custom-modal-card {
+  background: var(--card-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: 24px;
+  max-width: 360px;
+  width: 100%;
+  padding: 1.75rem 1.5rem;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  animation: modal-scale-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modal-scale-up {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modal-icon-badge {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+}
+
+.modal-icon-badge.danger {
+  background: rgba(244, 63, 94, 0.15);
+  color: var(--danger);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+.modal-icon-badge svg { width: 24px; height: 24px; }
+
+.modal-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.modal-description {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.modal-btn-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-modal-cancel {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-family: 'Prompt', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-modal-cancel:hover { background: var(--bg-surface-elevated); color: var(--text-primary); }
+
+.btn-modal-confirm {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  border: none;
+  background: var(--danger);
+  color: #ffffff;
+  font-family: 'Prompt', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(244, 63, 94, 0.35);
+}
+
+.btn-modal-confirm:hover { opacity: 0.92; transform: translateY(-1px); }
+
+/* ─── BOTTOM FOOTER CREDIT ─── */
+.app-footer {
+  min-height: calc(36px + env(safe-area-inset-bottom, 0px));
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  padding: 0.4rem 1rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+}
+
+.footer-text {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  opacity: 0.85;
+}
