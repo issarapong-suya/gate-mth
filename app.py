@@ -95,6 +95,10 @@ def get_best_host_ip():
     except Exception:
         return "13.0.0.172"
 
+@app.route('/favicon.ico')
+def favicon():
+    return app.send_static_file('LOGO_MTH_TOP.png')
+
 # ============================================================
 # Routes: หน้าหลักสำหรับเจ้าหน้าที่ (Mobile First)
 # ============================================================
