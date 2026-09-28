@@ -111,6 +111,10 @@ def init_db():
                       `last_used` VARCHAR(50) DEFAULT NULL
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
                 """)
+                try:
+                    cursor.execute("ALTER TABLE `users` ADD COLUMN `max_devices` INT DEFAULT 1")
+                except Exception:
+                    pass
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS `user_devices` (
                       `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -153,6 +157,10 @@ def init_db():
                       last_used TEXT DEFAULT NULL
                     );
                 """)
+                try:
+                    cursor.execute("ALTER TABLE users ADD COLUMN max_devices INTEGER DEFAULT 1")
+                except Exception:
+                    pass
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS user_devices (
                       id INTEGER PRIMARY KEY AUTOINCREMENT,
