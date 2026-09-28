@@ -6,6 +6,7 @@
 // ── State Management ─────────────────────
 let rawStaffList = [];
 let staffSearchKeyword = '';
+let staffStatusFilter = 'active';
 let staffCurrentPage = 1;
 let staffPageSize = 10;
 
@@ -181,11 +182,24 @@ function goToStaffPage(page) {
   applyStaffFilterAndPagination();
 }
 
+function changeStaffStatusFilter() {
+  const select = document.getElementById('staffStatusFilter');
+  if (select) staffStatusFilter = select.value || 'active';
+  staffCurrentPage = 1;
+  applyStaffFilterAndPagination();
+}
+
 function applyStaffFilterAndPagination() {
   let filtered = rawStaffList;
 
+  if (staffStatusFilter === 'active') {
+    filtered = filtered.filter(u => (u.status || 'active') === 'active');
+  } else if (staffStatusFilter === 'suspended') {
+    filtered = filtered.filter(u => u.status === 'suspended');
+  }
+
   if (staffSearchKeyword) {
-    filtered = rawStaffList.filter(u => {
+    filtered = filtered.filter(u => {
       const name = (u.name || '').toLowerCase();
       const role = (u.role || '').toLowerCase();
       const pin = (u.pin || '').toLowerCase();
@@ -193,7 +207,7 @@ function applyStaffFilterAndPagination() {
     });
   }
 
-  document.getElementById('userCount').textContent = rawStaffList.length;
+  document.getElementById('userCount').textContent = filtered.length;
 
   const totalItems = filtered.length;
   const totalPages = Math.ceil(totalItems / staffPageSize) || 1;
@@ -212,7 +226,7 @@ function renderStaffTable(users, totalFiltered, startIndex) {
   const tbody = document.getElementById('staffTableBody');
 
   if (!users.length) {
-    const emptyMsg = staffSearchKeyword ? `ไม่พบข้อมูลที่ตรงกับคำค้นหา "${escapeHtml(staffSearchKeyword)}"` : 'ยังไม่มีข้อมูลเจ้าหน้าที่';
+    const emptyMsg = staffSearchKeyword ? `ไม่พบข้อมูลที่ตรงกับคำค้นหา "${escapeHtml(staffSearchKeyword)}"` : 'ยังไม่มีข้อมูลเจ้าหน้าที่ในหมวดนี้';
     tbody.innerHTML = `<tr><td colspan="7" class="empty">${emptyMsg}</td></tr>`;
     return;
   }
@@ -240,10 +254,6 @@ function renderStaffTable(users, totalFiltered, startIndex) {
             <span style="white-space:nowrap;font-weight:600;">${escapeHtml(u.name)}</span>
           </div>
         </td>
-        <td style="color:var(--text-secondary);font-size:0.82rem;">${escapeHtml(u.role || '-')}</td>
-        <td style="font-family:'Plus Jakarta Sans',monospace;font-size:1.05rem;font-weight:700;letter-spacing:1px;color:var(--brand-cyan);">${escapeHtml(u.pin || '-')}</td>
-        <td>${statusHtml}</td>
-        <td style="font-size:0.75rem;color:var(--text-muted);">${u.last_used ? u.last_used.split(' ')[0] : 'ยังไม่เคยใช้'}</td>
         <td>
           <div class="action-group">
             <button class="btn-share-link" onclick="openShareLinkModal('${directUrl}', '${escapeJs(u.name)}')" title="เปิดแชร์ลิงก์">
@@ -258,6 +268,10 @@ function renderStaffTable(users, totalFiltered, startIndex) {
         </td>
         <td>
           <div class="action-group">
+            <button class="btn-devices" onclick="openManageDevicesModal('${u.id}', '${escapeJs(u.name)}', ${u.max_devices || 1})" title="จัดการอุปกรณ์มือถือที่ผูกสิทธิ์ (${u.max_devices || 1} เครื่อง)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+              <span>อุปกรณ์ (${u.max_devices || 1})</span>
+            </button>
             <button class="btn-edit" onclick="openEditStaffModal('${u.id}', '${escapeJs(u.name)}', '${escapeJs(u.role || '')}', '${escapeJs(u.pin || '')}')" title="แก้ไขข้อมูล & 6 PIN">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
               <span>แก้ไข</span>
@@ -274,6 +288,10 @@ function renderStaffTable(users, totalFiltered, startIndex) {
             }
           </div>
         </td>
+        <td style="color:var(--text-secondary);font-size:0.82rem;">${escapeHtml(u.role || '-')}</td>
+        <td style="font-family:'Plus Jakarta Sans',monospace;font-size:1.05rem;font-weight:700;letter-spacing:1px;color:var(--brand-cyan);">${escapeHtml(u.pin || '-')}</td>
+        <td>${statusHtml}</td>
+        <td style="font-size:0.75rem;color:var(--text-muted);">${u.last_used ? u.last_used.split(' ')[0] : 'ยังไม่เคยใช้'}</td>
       </tr>
     `;
   }).join('');
@@ -596,6 +614,114 @@ async function showQrModal(token, staffName) {
 function closeQrModal(e) {
   if (!e || e.target.id === 'qrModal' || e.target.classList.contains('btn-modal-close')) {
     document.getElementById('qrModal').style.display = 'none';
+  }
+}
+
+// ── Manage Devices Modal ────────────────
+let currentDeviceUserId = null;
+
+async function openManageDevicesModal(userId, userName, maxDevices) {
+  currentDeviceUserId = userId;
+  document.getElementById('deviceUserId').value = userId;
+  document.getElementById('deviceModalTitle').textContent = `จัดการอุปกรณ์: ${userName}`;
+  document.getElementById('selectMaxDevices').value = maxDevices || 1;
+  document.getElementById('manageDevicesModal').style.display = 'flex';
+  await loadUserDevices(userId);
+}
+
+function closeManageDevicesModal(e) {
+  if (!e || e.target.id === 'manageDevicesModal' || e.target.classList.contains('btn-modal-close') || e.target.classList.contains('btn-modal-cancel')) {
+    document.getElementById('manageDevicesModal').style.display = 'none';
+    currentDeviceUserId = null;
+  }
+}
+
+async function loadUserDevices(userId) {
+  const tbody = document.getElementById('deviceTableBody');
+  tbody.innerHTML = '<tr><td colspan="4" class="empty">กำลังโหลดรายการอุปกรณ์...</td></tr>';
+
+  try {
+    const resp = await fetch(`/api/admin/users/${userId}/devices`);
+    const data = await resp.json();
+
+    if (data.success && data.devices) {
+      if (data.devices.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">ยังไม่มีอุปกรณ์ผูกสิทธิ์ (ระบบจะผูกอัตโนมัติเมื่อใช้ครั้งแรก)</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.devices.map(dev => `
+        <tr>
+          <td>
+            <div style="font-weight:600; display:inline-flex; align-items:center; gap:0.4rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brand-cyan);"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+              <span>${escapeHtml(dev.device_name || 'อุปกรณ์มือถือ')}</span>
+            </div>
+            <div style="font-size:0.7rem; color:var(--text-muted); font-family:monospace;">${escapeHtml(dev.device_id)}</div>
+          </td>
+          <td style="font-size:0.75rem; color:var(--text-secondary);">${escapeHtml(dev.bound_at || '-')}</td>
+          <td style="font-size:0.75rem; color:var(--text-secondary);">${escapeHtml(dev.last_used_at || '-')}</td>
+          <td>
+            <button class="btn-revoke-dev" onclick="revokeDevice('${userId}', '${escapeJs(dev.device_id)}', '${escapeJs(dev.device_name)}')" title="ปลดถอนอุปกรณ์นี้">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              <span>ปลดถอน</span>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">ไม่สามารถโหลดข้อมูลอุปกรณ์ได้</td></tr>';
+    }
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์</td></tr>';
+  }
+}
+
+async function saveMaxDevices() {
+  const userId = currentDeviceUserId || document.getElementById('deviceUserId').value;
+  const maxDevs = parseInt(document.getElementById('selectMaxDevices').value) || 1;
+
+  if (!userId) return;
+
+  try {
+    const resp = await fetch(`/api/admin/users/${userId}/devices/max`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ max_devices: maxDevs })
+    });
+    const data = await resp.json();
+
+    if (data.success) {
+      showAdminToast(data.message || 'บันทึกจำนวนเครื่องสูงสุดเรียบร้อย', 'success');
+      loadStaffList();
+    } else {
+      alert(data.message || 'ไม่สามารถบันทึกได้');
+    }
+  } catch (err) {
+    alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+  }
+}
+
+async function revokeDevice(userId, deviceId, deviceName) {
+  if (!confirm(`คุณต้องการปลดถอนสิทธิ์อุปกรณ์ "${deviceName}" ใช่หรือไม่?\nเจ้าหน้าที่เครื่องนี้จะไม่สามารถใช้เปิดประตูได้จนกว่าจะผูกสิทธิ์ใหม่`)) {
+    return;
+  }
+
+  try {
+    const resp = await fetch(`/api/admin/users/${userId}/devices/${encodeURIComponent(deviceId)}`, {
+      method: 'DELETE'
+    });
+    const data = await resp.json();
+
+    if (data.success) {
+      showAdminToast(data.message || 'ปลดถอนอุปกรณ์เรียบร้อยแล้ว', 'success');
+      loadUserDevices(userId);
+      loadStaffList();
+    } else {
+      alert(data.message || 'ปลดถอนไม่สำเร็จ');
+    }
+  } catch (err) {
+    alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
   }
 }
 

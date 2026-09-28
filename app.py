@@ -15,7 +15,7 @@ import uuid
 import io
 import base64
 import qrcode
-from flask import Flask, render_template, jsonify, request, session
+from flask import Flask, render_template, jsonify, request, session, make_response
 from config import Config
 import db
 
@@ -104,7 +104,7 @@ def favicon():
 # ============================================================
 @app.route("/")
 def index():
-    token = request.args.get("token")
+    token = request.args.get("token") or request.cookies.get("mth_bound_device_token") or request.cookies.get("mth_gate_token")
     user = None
     if token:
         user = db.find_user_by_token(token)
@@ -116,20 +116,27 @@ def index():
         user = db.find_user_by_token(token_in_session)
 
     host_ip = get_best_host_ip()
-    return render_template("index.html", user=user, host_ip=host_ip)
+    resp = make_response(render_template("index.html", user=user, host_ip=host_ip))
+    if user:
+        resp.set_cookie("mth_bound_device_token", user["token"], max_age=315360000, samesite="Lax")
+        resp.set_cookie("mth_gate_token", user["token"], max_age=315360000, samesite="Lax")
+    return resp
 
 @app.route("/api/verify_pin", methods=["POST"])
 def api_verify_pin():
     data = request.get_json(silent=True) or {}
     pin = data.get("pin", "").strip()
-    bound_token = data.get("bound_token") or data.get("token")
+    bound_token = data.get("bound_token") or data.get("token") or request.cookies.get("mth_bound_device_token")
+    device_id = data.get("device_id")
+    device_name = data.get("device_name", "อุปกรณ์มือถือ")
     
-    success, user, message = db.verify_pin_for_bound_device(pin, bound_token)
+    success, user, message = db.verify_pin_for_bound_device(pin, bound_token, device_id, device_name)
     if not success or not user:
-        return jsonify({"success": False, "message": message}), 401 if "ไม่ถูกต้อง" in message else 403
+        status_code = 401 if "ไม่ถูกต้อง" in message else 403
+        return jsonify({"success": False, "message": message}), status_code
 
     session["user_token"] = user["token"]
-    return jsonify({
+    resp = make_response(jsonify({
         "success": True,
         "message": message,
         "user": {
@@ -137,12 +144,17 @@ def api_verify_pin():
             "role": user["role"],
             "token": user["token"]
         }
-    })
+    }))
+    resp.set_cookie("mth_bound_device_token", user["token"], max_age=315360000, samesite="Lax")
+    resp.set_cookie("mth_gate_token", user["token"], max_age=315360000, samesite="Lax")
+    return resp
 
 @app.route("/api/open", methods=["POST"])
 def api_open():
     data = request.get_json(silent=True) or {}
     token = data.get("token") or session.get("user_token")
+    device_id = data.get("device_id")
+    device_name = data.get("device_name", "อุปกรณ์มือถือ")
 
     if not token:
         return jsonify({"success": False, "message": "ไม่พบสิทธิ์การใช้งาน (Unauthorized)"}), 401
@@ -154,6 +166,12 @@ def api_open():
     if user.get("status") != "active":
         db.log_event("พยายามเปิดไม้กั้น", user["name"], False, "สิทธิ์ถูกระงับ (Account blocked)", user.get("id"))
         return jsonify({"success": False, "message": "สิทธิ์การใช้งานของคุณถูกระงับ (Blocked)"}), 403
+
+    if device_id:
+        allowed, dev_msg = db.register_or_verify_device(user["id"], device_id, device_name)
+        if not allowed:
+            db.log_event("พยายามเปิดไม้กั้น", user["name"], False, f"อุปกรณ์ไม่อนุญาต ({dev_msg})", user.get("id"))
+            return jsonify({"success": False, "message": dev_msg}), 403
 
     # ส่งสัญญาณเปิดไม้กั้น
     success, msg = trigger_open_relay()
@@ -176,7 +194,7 @@ def api_logout():
     return jsonify({"success": True})
 
 # ============================================================
-# Routes: หน้า Admin (จัดการเจ้าหน้าที่ & ลิงก์เข้าใช้งาน)
+# Routes: หน้า Admin (จัดการเจ้าหน้าที่ & ลิงก์เข้าใช้งาน & จัดการอุปกรณ์)
 # ============================================================
 @app.route("/admin")
 def admin_page():
@@ -213,6 +231,7 @@ def api_admin_users_add():
     name = data.get("name", "").strip()
     role = data.get("role", "เจ้าหน้าที่รักษาความปลอดภัย").strip()
     pin  = data.get("pin", "").strip()
+    max_devices = data.get("max_devices", 1)
 
     if not name:
         return jsonify({"success": False, "message": "กรุณาระบุชื่อเจ้าหน้าที่"}), 400
@@ -225,7 +244,7 @@ def api_admin_users_add():
     else:
         pin = f"{uuid.uuid4().int % 900000 + 100000}"
 
-    new_user = db.add_user(name, role, pin)
+    new_user = db.add_user(name, role, pin, max_devices)
     return jsonify({"success": True, "user": new_user})
 
 @app.route("/api/admin/users/<user_id>", methods=["PUT"])
@@ -237,6 +256,7 @@ def api_admin_user_update(user_id):
     name = data.get("name", "").strip()
     role = data.get("role", "").strip()
     pin  = data.get("pin", "").strip()
+    max_devices = data.get("max_devices")
 
     if not name:
         return jsonify({"success": False, "message": "กรุณาระบุชื่อเจ้าหน้าที่"}), 400
@@ -247,10 +267,37 @@ def api_admin_user_update(user_id):
         if len(pin) != 6:
             return jsonify({"success": False, "message": "รหัส PIN ต้องมี 6 หลักพอดี (ห้ามเกินหรือขาด)"}), 400
 
-    ok = db.update_user_details(user_id, name, role, pin)
+    ok = db.update_user_details(user_id, name, role, pin, max_devices)
     if ok:
         return jsonify({"success": True, "message": "อัปเดตข้อมูลสำเร็จ"})
     return jsonify({"success": False, "message": "ไม่พบผู้ใช้นี้ในระบบ"}), 404
+
+@app.route("/api/admin/users/<user_id>/devices", methods=["GET"])
+def api_admin_user_devices_get(user_id):
+    if not session.get("is_admin"):
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+    devices = db.load_user_devices(user_id)
+    return jsonify({"success": True, "devices": devices})
+
+@app.route("/api/admin/users/<user_id>/devices/max", methods=["POST"])
+def api_admin_user_devices_max(user_id):
+    if not session.get("is_admin"):
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    max_devs = data.get("max_devices", 1)
+    ok = db.update_user_max_devices(user_id, max_devs)
+    if ok:
+        return jsonify({"success": True, "message": f"ปรับเปลี่ยนสิทธิ์จำกัดเครื่องเป็น {max_devs} เครื่องเรียบร้อยแล้ว"})
+    return jsonify({"success": False, "message": "ไม่พบผู้ใช้ในระบบ"}), 404
+
+@app.route("/api/admin/users/<user_id>/devices/<device_id>", methods=["DELETE"])
+def api_admin_user_device_revoke(user_id, device_id):
+    if not session.get("is_admin"):
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+    ok = db.revoke_user_device(user_id, device_id)
+    if ok:
+        return jsonify({"success": True, "message": "ปลดถอนสิทธิ์อุปกรณ์เรียบร้อยแล้ว"})
+    return jsonify({"success": False, "message": "ไม่พบอุปกรณ์นี้"}), 404
 
 @app.route("/api/admin/users/<user_id>/toggle", methods=["POST"])
 def api_admin_user_toggle(user_id):

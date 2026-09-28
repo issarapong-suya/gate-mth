@@ -182,6 +182,14 @@
               <button class="btn-clear-search" id="btnStaffClearSearch" onclick="clearStaffSearch()" style="display:none;">✕</button>
             </div>
             <div class="page-size-selector">
+              <label>สถานะ:</label>
+              <select id="staffStatusFilter" onchange="changeStaffStatusFilter()">
+                <option value="active" selected>เฉพาะอนุมัติแล้ว</option>
+                <option value="all">ทั้งหมด (รวมระงับสิทธิ์)</option>
+                <option value="suspended">เฉพาะที่ถูกระงับ</option>
+              </select>
+            </div>
+            <div class="page-size-selector">
               <label>แสดง:</label>
               <select id="staffPageSize" onchange="changeStaffPageSize()">
                 <option value="5">5/หน้า</option>
@@ -197,12 +205,12 @@
               <thead>
                 <tr>
                   <th>ชื่อเจ้าหน้าที่</th>
+                  <th>แชร์สิทธิ์</th>
+                  <th>การจัดการ</th>
                   <th>แผนก</th>
                   <th>6 PIN</th>
                   <th>สถานะ</th>
                   <th>ใช้งานล่าสุด</th>
-                  <th>แชร์</th>
-                  <th>จัดการ</th>
                 </tr>
               </thead>
               <tbody id="staffTableBody">
@@ -373,6 +381,60 @@
       <div class="modal-btn-row">
         <button class="btn-modal-cancel" onclick="closeEditStaffModal()">ยกเลิก</button>
         <button class="btn-modal-save" onclick="saveStaffEdit()">บันทึกการแก้ไข</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ MODAL: MANAGE DEVICES ══════ -->
+  <div id="manageDevicesModal" class="modal-overlay" style="display:none;" onclick="closeManageDevicesModal(event)">
+    <div class="modal-card device-card">
+      <button class="btn-modal-close" onclick="closeManageDevicesModal()">✕</button>
+      <div class="modal-badge-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+          <line x1="12" y1="18" x2="12.01" y2="18"></line>
+        </svg>
+      </div>
+      <h3 id="deviceModalTitle">จัดการอุปกรณ์ที่ผูกสิทธิ์</h3>
+      <p class="modal-sub" id="deviceModalSubtitle">กำหนดจำนวนเครื่องที่อนุญาตและจัดการลบ/ปลดถอนอุปกรณ์</p>
+
+      <input type="hidden" id="deviceUserId" />
+
+      <div class="form-group-inline-device">
+        <label>โควตาอุปกรณ์สูงสุด (Max Devices):</label>
+        <div class="select-row-device">
+          <select id="selectMaxDevices">
+            <option value="1">1 เครื่อง (เริ่มต้น)</option>
+            <option value="2">2 เครื่อง</option>
+            <option value="3">3 เครื่อง</option>
+            <option value="5">5 เครื่อง</option>
+            <option value="10">10 เครื่อง (ไม่จำกัด)</option>
+          </select>
+          <button class="btn-save-maxdev" onclick="saveMaxDevices()">บันทึกโควตา</button>
+        </div>
+      </div>
+
+      <div style="margin-top:1.2rem;">
+        <h4 class="device-section-title">รายการอุปกรณ์ที่เคยผูกสิทธิ์/ใช้งาน:</h4>
+        <div class="table-wrap">
+          <table class="staff-table device-table">
+            <thead>
+              <tr>
+                <th>ชื่ออุปกรณ์ / OS</th>
+                <th>ผูกสิทธิ์เมื่อ</th>
+                <th>ใช้งานล่าสุด</th>
+                <th>การจัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="deviceTableBody">
+              <tr><td colspan="4" class="empty">กำลังโหลดรายการอุปกรณ์...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-btn-row" style="margin-top:1.5rem;">
+        <button class="btn-modal-cancel" onclick="closeManageDevicesModal()">ปิดหน้าต่าง</button>
       </div>
     </div>
   </div>

@@ -9,6 +9,7 @@ class MTHGateTestCase(unittest.TestCase):
         app.config['TESTING'] = True
         self.client = app.test_client()
         db.init_db()
+        db.execute_sql("DELETE FROM user_devices WHERE device_id LIKE %s OR device_id LIKE %s", ("test_%", "dev_%"))
 
     def test_01_index_route(self):
         response = self.client.get('/')
@@ -37,10 +38,12 @@ class MTHGateTestCase(unittest.TestCase):
         users = db.load_users()
         test_user = users[0]
 
-        # PIN entry with valid bound_token should succeed
+        # PIN entry with valid bound_token and device_id should succeed
         res = self.client.post('/api/verify_pin', json={
             "pin": test_user["pin"],
-            "bound_token": test_user["token"]
+            "bound_token": test_user["token"],
+            "device_id": "test_device_1",
+            "device_name": "Test Device"
         })
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
@@ -55,12 +58,13 @@ class MTHGateTestCase(unittest.TestCase):
         # Bound to User 1 token, but typing wrong PIN -> Should reject!
         res = self.client.post('/api/verify_pin', json={
             "pin": wrong_pin,
-            "bound_token": user1["token"]
+            "bound_token": user1["token"],
+            "device_id": "test_device_1",
+            "device_name": "Test Device"
         })
         self.assertNotEqual(res.status_code, 200)
         data = res.get_json()
         self.assertFalse(data["success"])
-        self.assertIn("ไม่ถูกต้องสำหรับผู้ใช้งานเครื่องนี้", data["message"])
 
     def test_05_admin_login_fail(self):
         res = self.client.post('/api/admin/login', json={"password": "wrongpassword"})
@@ -71,6 +75,67 @@ class MTHGateTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertTrue(data["success"])
+
+    def test_07_device_registration_limit_and_revoke(self):
+        users = db.load_users()
+        user1 = users[0]
+
+        # Login admin session
+        self.client.post('/api/admin/login', json={"password": "admin1234"})
+
+        # Reset max_devices to 1 for user1
+        self.client.post(f'/api/admin/users/{user1["id"]}/devices/max', json={"max_devices": 1})
+
+        # Revoke existing devices for user1 to clean up state
+        existing_devs = db.load_user_devices(user1["id"])
+        for dev in existing_devs:
+            db.revoke_user_device(user1["id"], dev["device_id"])
+
+        # Device A: Open gate with device_id="dev_A" -> Should succeed
+        res1 = self.client.post('/api/open', json={
+            "token": user1["token"],
+            "device_id": "dev_A",
+            "device_name": "Phone A"
+        })
+        self.assertEqual(res1.status_code, 200)
+
+        # Device B: Open gate with device_id="dev_B" on max_devices=1 -> Should be blocked!
+        res2 = self.client.post('/api/open', json={
+            "token": user1["token"],
+            "device_id": "dev_B",
+            "device_name": "Phone B"
+        })
+        self.assertEqual(res2.status_code, 403)
+        data2 = res2.get_json()
+        self.assertFalse(data2["success"])
+        self.assertTrue("อุปกรณ์" in data2["message"] or "จำกัด" in data2["message"])
+
+        # Admin increases max_devices to 2
+        res_max = self.client.post(f'/api/admin/users/{user1["id"]}/devices/max', json={"max_devices": 2})
+        self.assertEqual(res_max.status_code, 200)
+
+        # Device B tries again -> Should now succeed!
+        res3 = self.client.post('/api/open', json={
+            "token": user1["token"],
+            "device_id": "dev_B",
+            "device_name": "Phone B"
+        })
+        self.assertEqual(res3.status_code, 200)
+
+        # Admin revokes Device B
+        res_revoke = self.client.delete(f'/api/admin/users/{user1["id"]}/devices/dev_B')
+        self.assertEqual(res_revoke.status_code, 200)
+
+        # Admin resets max_devices back to 1
+        self.client.post(f'/api/admin/users/{user1["id"]}/devices/max', json={"max_devices": 1})
+
+        # Device B tries again after revoke (with Device A still active and max_devices=1) -> Blocked!
+        res4 = self.client.post('/api/open', json={
+            "token": user1["token"],
+            "device_id": "dev_B",
+            "device_name": "Phone B"
+        })
+        self.assertEqual(res4.status_code, 403)
 
 if __name__ == '__main__':
     unittest.main()

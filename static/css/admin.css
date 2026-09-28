@@ -700,6 +700,112 @@ td.empty {
   color: #fff;
 }
 
+/* Devices Button */
+.btn-devices {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.28rem 0.55rem;
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+  border-radius: 7px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.btn-devices:hover {
+  background: #a855f7;
+  color: #fff;
+}
+
+.btn-revoke-dev {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.22rem 0.5rem;
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  color: var(--danger);
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-revoke-dev:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Device Modal Layout */
+.device-card {
+  max-width: 540px !important;
+  width: 100%;
+}
+
+.form-group-inline-device {
+  margin: 1.2rem 0 0.8rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  justify-content: space-between;
+  background: var(--bg-card-hover);
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+}
+
+.form-group-inline-device label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.select-row-device {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.select-row-device select {
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.btn-save-maxdev {
+  padding: 0.45rem 0.9rem;
+  background: var(--brand-emerald);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-save-maxdev:hover {
+  filter: brightness(1.1);
+}
+
+.device-section-title {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.6rem;
+  font-weight: 600;
+}
+
 /* ── Modals ── */
 .modal-overlay {
   position: fixed;

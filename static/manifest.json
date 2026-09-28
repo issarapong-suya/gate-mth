@@ -1,0 +1,18 @@
+{
+  "name": "MTH Gate",
+  "short_name": "MTH Gate",
+  "description": "ระบบเปิดไม้กั้นสำหรับเจ้าหน้าที่ MTH",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0e17",
+  "theme_color": "#0a0e17",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/LOGO_MTH_TOP.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

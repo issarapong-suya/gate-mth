@@ -1,5 +1,23 @@
 import os
 
+def _load_env_file():
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'").strip('"')
+                        if k:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+_load_env_file()
+
 class Config:
     SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", "mth-gate-production-secret-2026")
     ADMIN_PASSWORD = os.environ.get("GATE_ADMIN_PASS", "admin1234")

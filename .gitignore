@@ -25,6 +25,7 @@ __pycache__/
 *.sqlite
 *.db
 events.json
+user_devices.json
 
 # OS Generated Files
 .DS_Store

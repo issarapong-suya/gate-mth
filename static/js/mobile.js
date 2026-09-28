@@ -88,14 +88,59 @@ function showSafeToast(message, type = 'success') {
   }, 3500);
 }
 
+// ── Cookie & Dual Storage Persistence Helpers (Supports Add to Home Screen PWAs) ──
+function getCookie(name) {
+  try {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
+  } catch (_) {}
+  return null;
+}
+
+function setCookie(name, value, days = 3650) {
+  try {
+    if (value === null || value === undefined) {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
+    } else {
+      const expires = new Date(Date.now() + days * 86400 * 1000).toUTCString();
+      document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+    }
+  } catch (_) {}
+}
+
+function getStoredItem(key) {
+  let val = null;
+  try { val = localStorage.getItem(key); } catch (_) {}
+  if (!val) {
+    val = getCookie(key);
+    if (val) {
+      try { localStorage.setItem(key, val); } catch (_) {}
+    }
+  } else {
+    setCookie(key, val);
+  }
+  return val;
+}
+
+function setStoredItem(key, val) {
+  if (val === null || val === undefined) {
+    try { localStorage.removeItem(key); } catch (_) {}
+    setCookie(key, null);
+  } else {
+    try { localStorage.setItem(key, val); } catch (_) {}
+    setCookie(key, val);
+  }
+}
+
 // ── Token & Auth Management ──────────────
 function saveAuth(user) {
   if (!user || !user.token) return;
   currentUserToken = user.token;
   currentUserName = user.name;
-  localStorage.setItem('mth_gate_token', user.token);
-  localStorage.setItem('mth_bound_device_token', user.token);
-  localStorage.setItem('mth_gate_user', JSON.stringify(user));
+  setStoredItem('mth_gate_token', user.token);
+  setStoredItem('mth_bound_device_token', user.token);
+  setStoredItem('mth_gate_user', JSON.stringify(user));
   showScreen('gate');
   renderUser(user);
 }
@@ -103,9 +148,9 @@ function saveAuth(user) {
 function clearAuth() {
   currentUserToken = null;
   currentUserName = '';
-  localStorage.removeItem('mth_gate_token');
-  localStorage.removeItem('mth_gate_user');
-  // NOTE: mth_bound_device_token is intentionally kept to remember device binding!
+  setStoredItem('mth_gate_token', null);
+  setStoredItem('mth_gate_user', null);
+  // NOTE: mth_bound_device_token & mth_device_uuid are intentionally kept to remember device binding!
   currentPin = '';
   updatePinDots();
   showScreen('login');
@@ -129,9 +174,9 @@ function confirmSwitchUser() {
   const modal = document.getElementById('switchUserModal');
   if (modal) modal.style.display = 'none';
 
-  localStorage.removeItem('mth_bound_device_token');
-  localStorage.removeItem('mth_gate_token');
-  localStorage.removeItem('mth_gate_user');
+  setStoredItem('mth_bound_device_token', null);
+  setStoredItem('mth_gate_token', null);
+  setStoredItem('mth_gate_user', null);
   currentPin = '';
   updatePinDots();
   updateBindingUiState();
@@ -141,7 +186,7 @@ function confirmSwitchUser() {
 }
 
 function updateBindingUiState() {
-  const boundToken = localStorage.getItem('mth_bound_device_token');
+  const boundToken = getStoredItem('mth_bound_device_token');
   const btnSwitch = document.getElementById('btnSwitchUser');
   const btnScan = document.getElementById('btnScanQr');
   const errEl = document.getElementById('pinError');
@@ -395,17 +440,50 @@ function updatePinDots() {
   });
 }
 
+// ── Device Identification ────────────────
+function getOrCreateDeviceId() {
+  let deviceId = getStoredItem('mth_device_uuid');
+  if (!deviceId) {
+    deviceId = 'dev_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36);
+    setStoredItem('mth_device_uuid', deviceId);
+  }
+  return deviceId;
+}
+
+function getDeviceName() {
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return 'iOS Device (iPhone/iPad)';
+  } else if (/Android/i.test(ua)) {
+    if (/Samsung/i.test(ua)) return 'Samsung Device';
+    if (/Xiaomi/i.test(ua)) return 'Xiaomi Device';
+    if (/OPPO/i.test(ua)) return 'OPPO Device';
+    if (/vivo/i.test(ua)) return 'Vivo Device';
+    return 'Android Mobile';
+  } else if (/Windows/i.test(ua)) {
+    return 'Windows PC';
+  } else if (/Macintosh/i.test(ua)) {
+    return 'Mac Device';
+  }
+  return 'อุปกรณ์มือถือ';
+}
+
 async function verifyPin() {
   const errEl = document.getElementById('pinError');
   if (errEl) errEl.textContent = 'กำลังตรวจสอบ...';
 
-  const boundToken = localStorage.getItem('mth_bound_device_token') || localStorage.getItem('mth_gate_token');
+  const boundToken = getStoredItem('mth_bound_device_token') || getStoredItem('mth_gate_token');
 
   try {
     const resp = await fetch('/api/verify_pin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin: currentPin, bound_token: boundToken })
+      body: JSON.stringify({
+        pin: currentPin,
+        bound_token: boundToken,
+        device_id: getOrCreateDeviceId(),
+        device_name: getDeviceName()
+      })
     });
     const data = await resp.json();
 
@@ -443,7 +521,11 @@ async function doOpenGate() {
     const resp = await fetch('/api/open', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: currentUserToken })
+      body: JSON.stringify({
+        token: currentUserToken,
+        device_id: getOrCreateDeviceId(),
+        device_name: getDeviceName()
+      })
     });
     const data = await resp.json();
 
@@ -550,16 +632,15 @@ async function pollStatus() {
     return;
   }
 
-  // 3. Persistent session on this device
-  const savedToken = localStorage.getItem('mth_gate_token');
-  const savedUserJson = localStorage.getItem('mth_gate_user');
+  // 3. Persistent session on this device (Checks both LocalStorage & Persistent Cookie)
+  const savedToken = getStoredItem('mth_gate_token') || getStoredItem('mth_bound_device_token');
+  const savedUserJson = getStoredItem('mth_gate_user');
   if (savedToken && savedUserJson) {
     try {
       const user = JSON.parse(savedUserJson);
       currentUserToken = savedToken;
       currentUserName = user.name;
-      showScreen('gate');
-      renderUser(user);
+      saveAuth(user);
       pollStatus();
       setInterval(pollStatus, 8000);
       return;
